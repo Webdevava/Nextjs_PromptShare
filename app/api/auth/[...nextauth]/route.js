@@ -15,9 +15,13 @@ const handler = NextAuth({
   ],
   callbacks: {
     async session({ session }) {
-      // store the user id from MongoDB to session
-      const sessionUser = await User.findOne({ email: session.user.email });
-      session.user.id = sessionUser._id.toString();
+      // Store the user id from MongoDB to session if not already set
+      if (!session.user.id) {
+        const sessionUser = await User.findOne({ email: session.user.email });
+        if (sessionUser) {
+          session.user.id = sessionUser._id.toString();
+        }
+      }
 
       return session;
     },
@@ -25,25 +29,32 @@ const handler = NextAuth({
       try {
         await connectToDB();
 
-        // check if user already exists
+        if (!profile || !profile.email) {
+          throw new Error("Missing profile information");
+        }
+
+        // Check if user already exists
         const userExists = await User.findOne({ email: profile.email });
 
-        // if not, create a new document and save user in MongoDB
+        // If not, create a new document and save user in MongoDB
         if (!userExists) {
           await User.create({
             email: profile.email,
-            username: profile.name.replace(" ", "").toLowerCase(),
+            username: profile.name ? profile.name.replace(" ", "").toLowerCase() : "", // Handle missing name
             image: profile.picture,
           });
         }
 
-        return true
+        return true;
       } catch (error) {
-        console.log("Error checking if user exists: ", error.message);
-        return false
+        console.error("Error during sign-in:", error);
+        return {
+          error: "Sign-in error",
+          message: error.message
+        };
       }
     },
   }
-})
+});
 
-export { handler as GET, handler as POST }
+export { handler as GET, handler as POST };

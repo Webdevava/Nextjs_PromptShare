@@ -1,34 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
-import Profile from "@components/Profile";
+import Form from "@components/Form";
 
-const UserProfile = ({ params }) => {
-  const searchParams = useSearchParams();
-  const userName = searchParams.get("name");
+const CreatePrompt = () => {
+  const router = useRouter();
+  const { data: session } = useSession();
 
-  const [userPosts, setUserPosts] = useState([]);
+  const [submitting, setIsSubmitting] = useState(false);
+  const [post, setPost] = useState({ prompt: "", tag: "" });
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      const response = await fetch(`/api/users/${params?.id}/posts`);
-      const data = await response.json();
+  const createPrompt = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
-      setUserPosts(data);
-    };
+    try {
+      const response = await fetch("/api/prompt/new", {
+        method: "POST",
+        body: JSON.stringify({
+          prompt: post.prompt,
+          userId: session?.user.id,
+          tag: post.tag,
+        }),
+      });
 
-    if (params?.id) fetchPosts();
-  }, [params.id]);
+      if (response.ok) {
+        router.push("/");
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <Profile
-      name={userName}
-      desc={`Welcome to ${userName}'s personalized profile page. Explore ${userName}'s exceptional prompts and be inspired by the power of their imagination`}
-      data={userPosts}
+    <Form
+      type='Create'
+      post={post}
+      setPost={setPost}
+      submitting={submitting}
+      handleSubmit={createPrompt}
     />
   );
 };
 
-export default UserProfile;
+export default CreatePrompt;
